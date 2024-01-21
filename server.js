@@ -20,6 +20,11 @@ const options = [
 ];
 
 app.use(options);
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  // Add other CORS headers as needed
+  next();
+});
 
 const port = process.env.PORT || 3000;
 // Specify the path to your SQLite database file
