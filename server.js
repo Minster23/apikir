@@ -10,6 +10,17 @@ app.use(cors());
 app.use(express.json());
 app.use(bodyParser.json());
 
+const options = [
+  cors({
+    origin: '*',
+    methods: '*',
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  })
+];
+
+app.use(options);
+
 const port = process.env.PORT || 3000;
 // Specify the path to your SQLite database file
 const dbPath = path.join(__dirname, 'Database', 'kir_absen.db');
