@@ -6,7 +6,7 @@ const path = require('path');
 const bodyParser = require('body-parser');
 require('dotenv').config();
 
-app.use(cors({origin:"http://localhost:5173"}));
+app.use(cors());
 app.use(express.json());
 app.use(bodyParser.json());
 
