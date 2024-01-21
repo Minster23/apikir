@@ -3,10 +3,12 @@ const cors = require("cors");
 const app = express();
 const sqlite3 = require('sqlite3');
 const path = require('path');
+const bodyParser = require('body-parser');
 require('dotenv').config();
 
 app.use(cors());
 app.use(express.json());
+app.use(bodyParser.json());
 
 const port = process.env.PORT || 3000;
 // Specify the path to your SQLite database file
@@ -20,22 +22,30 @@ let db = new sqlite3.Database(dbPath, (err) => {
   }
 });
 
-app.post("/login/:Nama", (req, res) => {
-  const { Nama } = req.params;
+app.post("/login/:Nama/:Password", (req, res) => {
+  const { Nama, Password } = req.params;
 
-  if (!Nama || Nama.toLowerCase() === 'unidentified') {
-    // If Nama is null or unidentified
+  // Check if Nama is null or unidentified, and if Password is null or too short
+  if (!Nama || Nama.toLowerCase() === 'unidentified' || !Password) {
     res.send("Tidak terdeteksi");
   } else {
-    // Query the 'siswa' table to check if Nama is found
-    db.get("SELECT Nama FROM siswa WHERE Nama = ?", [Nama], (err, row) => {
+    // Query the 'siswa' table to check if Nama and Password match
+    db.get("SELECT Nama, Password FROM siswa WHERE Nama = ?", [Nama], (err, row) => {
       if (err) {
         console.log("Error retrieving data - " + err.message);
         res.status(500).send("Internal Server Error");
       } else {
         if (row) {
-          // Nama found, set login to true
-          res.send("true");
+          // Check if the provided Password matches the stored Password
+          const storedPassword = row.Password;
+
+          if (Password === storedPassword) {
+            // Passwords match, send "true"
+            res.send("true");
+          } else {
+            // Passwords do not match, send "false"
+            res.send("false");
+          }
         } else {
           // Nama not found
           res.send("false");
@@ -45,6 +55,7 @@ app.post("/login/:Nama", (req, res) => {
   }
 });
 
+
 app.post("/siswa/absen/:Nama", (req, res) => {
   const { Nama } = req.params;
 
@@ -53,16 +64,28 @@ app.post("/siswa/absen/:Nama", (req, res) => {
   const hours = currentTime.getHours();
   const minutes = currentTime.getMinutes();
   const formattedTime = `${hours}:${minutes}`;
+  var masukStatus = "";
 
+  if(formattedTime >= '16:04' && formattedTime <= '16:21'){
+    masukStatus = "Masuk";
+  }else if(formattedTime >= '16:21' && formattedTime <= '17:00'){
+    masukStatus = "telat";
+  }else{
+    masukStatus = "bolos";
+  }
   // Update the 'Masuk' column to 'Yes' and set the 'Waktu' column to the current time
-  db.run("UPDATE siswa SET Masuk = 'Yes', Waktu = ? WHERE Nama = ?", [formattedTime, Nama], (err) => {
-    if (err) {
-      console.log("Error updating data - " + err.message);
-      res.status(500).send("Internal Server Error");
-    } else {
-      res.send(true);
-    }
-  });
+  if(formattedTime >= '16:00' && formattedTime <= '17:31'){
+    db.run("UPDATE siswa SET Masuk = ?, Waktu = ? WHERE Nama = ?", [masukStatus,formattedTime, Nama], (err) => {
+      if (err) {
+        console.log("Error updating data - " + err.message);
+        res.status(500).send("Internal Server Error");
+      } else {
+        res.send(true);
+      }
+    });
+  }else{
+    res.send("Tidak tersedia");
+  }
 });
 
 app.get("/absen", (req, res) => {
@@ -124,6 +147,39 @@ app.get("/timeline", (req, res) => {
   });
 });
 
+app.delete("/timeline", (req, res) => {
+  db.run("DELETE FROM timeline;", (err, rows) => {
+    if (err) {
+      console.log("Error retrieving data - " + err.message);
+      res.status(500).send("Internal Server Error");
+    } else {
+      // Send the data as pretty JSON
+      res.json(rows);
+    }
+  });
+});
+
+app.post("/timeline", (req, res) => {
+  const Jadwal = req.body.jadwal;
+  const Isi = req.body.isi;
+
+  // Use placeholders in the SQL query to avoid SQL injection
+  const query = "INSERT INTO timeline (Waktu, Event) VALUES (?, ?)";
+
+  // Execute the query with the provided values
+  db.run(query, [Jadwal, Isi], function (err) {
+    if (err) {
+      console.log("Error inserting data - " + err.message);
+      console.log(Jadwal);
+      console.log(Isi);
+      res.status(500).send("Internal Server Error");
+    } else {
+      // Send a simple acknowledgment
+      res.status(200).send("Data inserted successfully");
+    }
+  });
+});
+
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`http://localhost:${port}`);
 });
